@@ -11,27 +11,25 @@ import { StatCard, SectionHeader, Select, CustomTooltip, CategoryBadge } from '.
 export default function CountryIntelligence({ data }) {
   const { meta, byCountry } = data
 
-  const [selCtry, setSelCtry]   = useState('United States')
-  const [selYear, setSelYear]   = useState('all')
-  const [metric, setMetric]     = useState('val')
-  const [topN, setTopN]         = useState(15)
+  const [selCtry, setSelCtry] = useState('United States')
+  const [selYear, setSelYear] = useState('all')
+  const [metric, setMetric]   = useState('val')
+  const [topN, setTopN]       = useState(15)
 
   const ctyOpts = meta.countries.map(c => ({ value: c, label: c }))
 
-  // ── Summary stats ──────────────────────────────────────────────────────────
   const stats = useMemo(() => {
     const rows = byCountry[selCtry] || []
-    const totalVal  = rows.reduce((s, r) => s + r.val, 0)
-    const totalQty  = rows.reduce((s, r) => s + r.qty, 0)
-    const uniqueP   = new Set(rows.map(r => r.product)).size
-    const latRows   = rows.filter(r => r.year === YEARS[YEARS.length - 1])
-    const latV      = latRows.reduce((s, r) => s + r.val, 0)
-    const prvRows   = rows.filter(r => r.year === YEARS[YEARS.length - 2])
-    const prvV      = prvRows.reduce((s, r) => s + r.val, 0)
+    const totalVal = rows.reduce((s, r) => s + r.val, 0)
+    const totalQty = rows.reduce((s, r) => s + r.qty, 0)
+    const uniqueP  = new Set(rows.map(r => r.product)).size
+    const latRows  = rows.filter(r => r.year === YEARS[YEARS.length - 1])
+    const latV     = latRows.reduce((s, r) => s + r.val, 0)
+    const prvRows  = rows.filter(r => r.year === YEARS[YEARS.length - 2])
+    const prvV     = prvRows.reduce((s, r) => s + r.val, 0)
     return { totalVal, totalQty, uniqueP, latV, yoy: prvV > 0 ? (latV - prvV) / prvV * 100 : 0 }
   }, [selCtry, byCountry])
 
-  // ── Top products ───────────────────────────────────────────────────────────
   const topProds = useMemo(() => {
     const rows = (byCountry[selCtry] || []).filter(r => selYear === 'all' || r.year === selYear)
     const byP = {}
@@ -46,7 +44,6 @@ export default function CountryIntelligence({ data }) {
       .map(r => ({ ...r, productShort: trunc(r.product, 36) }))
   }, [selCtry, byCountry, selYear, metric, topN])
 
-  // ── Year-over-year trend ───────────────────────────────────────────────────
   const yearTrend = useMemo(() => {
     const rows = byCountry[selCtry] || []
     return YEARS.map(y => {
@@ -59,7 +56,6 @@ export default function CountryIntelligence({ data }) {
     })
   }, [selCtry, byCountry])
 
-  // ── Category split ─────────────────────────────────────────────────────────
   const catSplit = useMemo(() => {
     const rows = (byCountry[selCtry] || []).filter(r => selYear === 'all' || r.year === selYear)
     const byCat = {}
@@ -70,13 +66,11 @@ export default function CountryIntelligence({ data }) {
     return Object.values(byCat).sort((a, b) => b.val - a.val)
   }, [selCtry, byCountry, selYear])
 
-  // ── Top 8 products stacked trend ──────────────────────────────────────────
   const { stackedData, top8Keys } = useMemo(() => {
     const rows = byCountry[selCtry] || []
     const byP = {}
     for (const r of rows) byP[r.product] = (byP[r.product] || 0) + r.val
     const top8 = Object.entries(byP).sort((a, b) => b[1] - a[1]).slice(0, 8).map(e => e[0])
-
     const stackedData = YEARS.map(y => {
       const yr = rows.filter(r => r.year === y)
       const obj = { year: y }
@@ -84,7 +78,6 @@ export default function CountryIntelligence({ data }) {
         obj[trunc(p, 22)] = yr.filter(r => r.product === p).reduce((s, r) => s + r.val, 0)
       return obj
     })
-
     return { stackedData, top8Keys: top8.map(p => trunc(p, 22)) }
   }, [selCtry, byCountry])
 
@@ -119,7 +112,7 @@ export default function CountryIntelligence({ data }) {
       </div>
 
       {/* KPI row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
         <StatCard label="Total Imported Value" value={fmtVal(stats.totalVal)} color={COLORS.accent} />
         <StatCard
           label="Latest Year Import"
@@ -131,8 +124,8 @@ export default function CountryIntelligence({ data }) {
         <StatCard label="Unique Commodities" value={stats.uniqueP} color={COLORS.amber} />
       </div>
 
-      {/* Trend + category split */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
+      {/* ── Trend + category split — stacks on mobile ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
         <div style={card}>
           <SectionHeader
             title={`Import Trend — ${selCtry}`}
@@ -147,8 +140,8 @@ export default function CountryIntelligence({ data }) {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
-              <XAxis dataKey="year" tick={{ fill: COLORS.muted, fontSize: 12 }} />
-              <YAxis tick={{ fill: COLORS.muted, fontSize: 11 }} tickFormatter={v => `$${v}M`} />
+              <XAxis dataKey="year" tick={{ fill: COLORS.muted, fontSize: 11 }} />
+              <YAxis tick={{ fill: COLORS.muted, fontSize: 10 }} tickFormatter={v => `$${v}M`} />
               <Tooltip content={<CustomTooltip mode="val" />} />
               <Area type="monotone" dataKey="val" name="Trade Value"
                 stroke={COLORS.purple} fill="url(#cg1)" strokeWidth={2.5}
@@ -193,7 +186,7 @@ export default function CountryIntelligence({ data }) {
             <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
             <XAxis type="number" tick={{ fill: COLORS.muted, fontSize: 10 }}
               tickFormatter={v => metric === 'val' ? `$${v}M` : `${(v / 1000).toFixed(0)}K`} />
-            <YAxis type="category" dataKey="product" tick={{ fill: COLORS.subtle, fontSize: 11 }} width={200} />
+            <YAxis type="category" dataKey="product" tick={{ fill: COLORS.subtle, fontSize: 10 }} width={190} />
             <Tooltip content={<CustomTooltip mode={metric} />} />
             <Bar dataKey={metric === 'val' ? 'val' : 'qty'} name={metric === 'val' ? 'Value' : 'Qty'}
               radius={[0, 4, 4, 0]}>
@@ -209,8 +202,8 @@ export default function CountryIntelligence({ data }) {
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={stackedData}>
             <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
-            <XAxis dataKey="year" tick={{ fill: COLORS.muted, fontSize: 12 }} />
-            <YAxis tick={{ fill: COLORS.muted, fontSize: 11 }} tickFormatter={v => `$${v}M`} />
+            <XAxis dataKey="year" tick={{ fill: COLORS.muted, fontSize: 11 }} />
+            <YAxis tick={{ fill: COLORS.muted, fontSize: 10 }} tickFormatter={v => `$${v}M`} />
             <Tooltip content={<CustomTooltip mode="val" />} />
             <Legend wrapperStyle={{ fontSize: 10, color: COLORS.subtle, paddingTop: 8 }} />
             {top8Keys.map((p, i) => (
@@ -243,16 +236,16 @@ export default function CountryIntelligence({ data }) {
             </thead>
             <tbody>
               {topProds.map((r, i) => (
-                <tr key={i} style={{ borderBottom: '1px solid #111827' }}>
+                <tr key={i} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                   <td style={{ padding: '8px 12px', color: COLORS.muted }}>#{i + 1}</td>
                   <td style={{ padding: '8px 12px', color: COLORS.text, fontWeight: 500 }}>{r.fullP}</td>
                   <td style={{ padding: '8px 12px' }}>
                     <CategoryBadge category={r.category} />
                   </td>
-                  <td style={{ padding: '8px 12px', color: COLORS.accent, fontFamily: "'Space Mono', monospace" }}>
+                  <td style={{ padding: '8px 12px', color: COLORS.accent }}>
                     {fmtVal(r.val)}
                   </td>
-                  <td style={{ padding: '8px 12px', color: COLORS.purple, fontFamily: "'Space Mono', monospace" }}>
+                  <td style={{ padding: '8px 12px', color: COLORS.purple }}>
                     {fmtQty(r.qty)}
                   </td>
                 </tr>

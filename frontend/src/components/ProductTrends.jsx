@@ -25,7 +25,6 @@ export default function ProductTrends({ data }) {
 
   const prodOptions = meta.products.map(p => ({ value: p, label: trunc(p, 55) }))
 
-  // ── Overall year-on-year trend ─────────────────────────────────────────────
   const overallTrend = useMemo(() => {
     const rows = byProduct[selProd] || []
     return YEARS.map(y => {
@@ -39,7 +38,6 @@ export default function ProductTrends({ data }) {
     })
   }, [selProd, byProduct])
 
-  // ── Top 8 countries stacked by year ───────────────────────────────────────
   const { stackedData, top8 } = useMemo(() => {
     const rows = byProduct[selProd] || []
     const byCty = {}
@@ -63,7 +61,6 @@ export default function ProductTrends({ data }) {
     return { stackedData, top8 }
   }, [selProd, byProduct, metric])
 
-  // ── Drill-down: per-year country breakdown ─────────────────────────────────
   const drillData = useMemo(() => {
     const rows = byProduct[selProd] || []
     return rows
@@ -78,22 +75,20 @@ export default function ProductTrends({ data }) {
       .slice(0, 15)
   }, [selProd, byProduct, drillYear, metric])
 
-  // ── Summary stats ──────────────────────────────────────────────────────────
-  const latest  = overallTrend[overallTrend.length - 1]
-  const prev    = overallTrend[overallTrend.length - 2]
-  const yoy     = prev?.val > 0 ? (latest?.val - prev?.val) / prev?.val * 100 : 0
+  const latest   = overallTrend[overallTrend.length - 1]
+  const prev     = overallTrend[overallTrend.length - 2]
+  const yoy      = prev?.val > 0 ? (latest?.val - prev?.val) / prev?.val * 100 : 0
   const totalVal = overallTrend.reduce((s, r) => s + r.val, 0)
 
   const card = { background: COLORS.cardBg, border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: 20 }
 
-  // ── Chart component picker ─────────────────────────────────────────────────
   const renderTrendChart = () => {
     const commonProps = {
       data: overallTrend,
       children: [
         <CartesianGrid key="grid" strokeDasharray="3 3" stroke={COLORS.border} />,
-        <XAxis key="x" dataKey="year" tick={{ fill: COLORS.muted, fontSize: 12 }} />,
-        <YAxis key="y" tick={{ fill: COLORS.muted, fontSize: 11 }}
+        <XAxis key="x" dataKey="year" tick={{ fill: COLORS.muted, fontSize: 11 }} />,
+        <YAxis key="y" tick={{ fill: COLORS.muted, fontSize: 10 }}
           tickFormatter={v => metric === 'val' ? `$${v}M` : `${(v / 1000).toFixed(0)}K`} />,
         <Tooltip key="tip" content={<CustomTooltip mode={metric} />} />,
       ],
@@ -165,7 +160,7 @@ export default function ProductTrends({ data }) {
       </div>
 
       {/* KPI row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
         <StatCard label="5-Year Total Value" value={fmtVal(totalVal)} color={COLORS.accent} />
         <StatCard
           label="Latest Year Value"
@@ -198,8 +193,8 @@ export default function ProductTrends({ data }) {
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={stackedData}>
             <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
-            <XAxis dataKey="year" tick={{ fill: COLORS.muted, fontSize: 12 }} />
-            <YAxis tick={{ fill: COLORS.muted, fontSize: 11 }}
+            <XAxis dataKey="year" tick={{ fill: COLORS.muted, fontSize: 11 }} />
+            <YAxis tick={{ fill: COLORS.muted, fontSize: 10 }}
               tickFormatter={v => metric === 'val' ? `$${v}M` : `${(v / 1000).toFixed(0)}K`} />
             <Tooltip content={<CustomTooltip mode={metric} />} />
             <Legend
@@ -213,8 +208,8 @@ export default function ProductTrends({ data }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Per-year drill-down row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      {/* ── Per-year drill-down — stacks on mobile ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
 
         {/* Horizontal bar */}
         <div style={card}>
@@ -227,7 +222,7 @@ export default function ProductTrends({ data }) {
               <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
               <XAxis type="number" tick={{ fill: COLORS.muted, fontSize: 10 }}
                 tickFormatter={v => metric === 'val' ? `$${v}M` : `${(v / 1000).toFixed(0)}K`} />
-              <YAxis type="category" dataKey="country" tick={{ fill: COLORS.subtle, fontSize: 11 }} width={110} />
+              <YAxis type="category" dataKey="country" tick={{ fill: COLORS.subtle, fontSize: 10 }} width={100} />
               <Tooltip content={<CustomTooltip mode={metric} />} />
               <Bar dataKey={metric === 'val' ? 'val' : 'qty'} name={metric === 'val' ? 'Value' : 'Qty'}
                 radius={[0, 4, 4, 0]}>
@@ -247,7 +242,7 @@ export default function ProductTrends({ data }) {
                 dataKey={metric === 'val' ? 'val' : 'qty'}
                 nameKey="country"
                 cx="50%" cy="50%"
-                outerRadius={110} innerRadius={50}
+                outerRadius={100} innerRadius={45}
                 paddingAngle={2}
                 label={({ country, percent }) =>
                   percent > 0.05 ? `${trunc(country, 9)} ${(percent * 100).toFixed(0)}%` : ''}
@@ -294,13 +289,13 @@ export default function ProductTrends({ data }) {
               {drillData.map((r, i) => {
                 const total = drillData.reduce((s, d) => s + d.val, 0)
                 return (
-                  <tr key={i} style={{ borderBottom: '1px solid #111827' }}>
+                  <tr key={i} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
                     <td style={{ padding: '8px 12px', color: COLORS.muted }}>#{i + 1}</td>
                     <td style={{ padding: '8px 12px', color: COLORS.text, fontWeight: 500 }}>{r.fullCountry}</td>
-                    <td style={{ padding: '8px 12px', color: COLORS.accent, fontFamily: "'Space Mono', monospace" }}>
+                    <td style={{ padding: '8px 12px', color: COLORS.accent }}>
                       {fmtVal(r.val)}
                     </td>
-                    <td style={{ padding: '8px 12px', color: COLORS.purple, fontFamily: "'Space Mono', monospace" }}>
+                    <td style={{ padding: '8px 12px', color: COLORS.purple }}>
                       {fmtQty(r.qty)}
                     </td>
                     <td style={{ padding: '8px 12px', color: COLORS.amber }}>
