@@ -1,3 +1,4 @@
+import './env.js'  // ← must be the very first import
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
@@ -14,6 +15,7 @@ import https from 'https'
 import authRoutes from './routes/auth.js'
 import feedbackRoutes from './routes/feedback.js'
 import authGoogle from './routes/authGoogle.js'
+import domesticRoutes from './routes/domestic.js'
 
 const app = express()
 app.use(cors())
@@ -26,6 +28,7 @@ mongoose.connect(process.env.MONGO_URI)
 app.use('/api/auth', authRoutes)
 app.use('/api/feedback', feedbackRoutes)
 app.use('/api/auth', authGoogle)
+app.use('/api/domestic', domesticRoutes)
 
 app.get('/', (req, res) => res.send('API running'))
 

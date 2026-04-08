@@ -4,6 +4,7 @@ import { COLORS } from './constants'
 import MarketOverview from './components/MarketOverview'
 import ProductTrends from './components/ProductTrends'
 import CountryIntelligence from './components/CountryIntelligence'
+import DomesticDashboard from './components/DomesticDashboard'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Feedback from './pages/Feedback'
@@ -14,6 +15,11 @@ const NAV = [
   { id: 'country',   label: '🌍 Countries' },
 ]
 
+const MODES = [
+  { id: 'export',   label: '✈️ Import / Export' },
+  { id: 'domestic', label: '🏪 Domestic Trades'  },
+]
+
 export default function App() {
   const [user, setUser]                 = useState(null)
   const [authPage, setAuthPage]         = useState('login')
@@ -21,6 +27,7 @@ export default function App() {
   const [loading, setLoading]           = useState(true)
   const [error, setError]               = useState(null)
   const [view, setView]                 = useState('overview')
+  const [mode, setMode]                 = useState('export')       // ← new
   const [showFeedback, setShowFeedback] = useState(false)
   const [menuOpen, setMenuOpen]         = useState(false)
 
@@ -42,7 +49,7 @@ export default function App() {
       })
   }, [user])
 
-  const handleLogin = (userData) => setUser(userData)
+  const handleLogin  = (userData) => setUser(userData)
 
   const handleLogout = () => {
     localStorage.removeItem('token')
@@ -73,13 +80,14 @@ export default function App() {
       }}>
         <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 16px' }}>
 
-          {/* Top row: logo + hamburger */}
+          {/* Top row: logo + mode switcher + nav + user */}
           <div style={{
             display: 'flex', alignItems: 'center',
             justifyContent: 'space-between', height: 56,
           }}>
+
             {/* Logo */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
               <div style={{
                 width: 32, height: 32, borderRadius: 8,
                 background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
@@ -98,6 +106,33 @@ export default function App() {
               </div>
             </div>
 
+            {/* Mode switcher — centre of header */}
+            <div className="desktop-nav" style={{
+              display: 'flex', alignItems: 'center',
+              background: '#f1f5f9', borderRadius: 10,
+              padding: 3, gap: 2,
+            }}>
+              {MODES.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setMode(m.id)}
+                  style={{
+                    padding: '5px 14px', borderRadius: 8,
+                    border: 'none', cursor: 'pointer',
+                    fontSize: 12, fontWeight: 700,
+                    fontFamily: 'Arial, sans-serif',
+                    whiteSpace: 'nowrap',
+                    background: mode === m.id ? '#ffffff' : 'transparent',
+                    color:      mode === m.id ? '#2563eb' : '#64748b',
+                    boxShadow:  mode === m.id ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+
             {/* Hamburger for mobile */}
             <button
               onClick={() => setMenuOpen(!menuOpen)}
@@ -106,7 +141,6 @@ export default function App() {
                 background: 'transparent', border: 'none',
                 fontSize: 22, cursor: 'pointer', color: '#64748b',
                 padding: '4px 8px',
-                '@media (max-width: 768px)': { display: 'block' }
               }}
               className="hamburger"
             >
@@ -115,7 +149,9 @@ export default function App() {
 
             {/* Desktop right side */}
             <div className="desktop-nav" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {NAV.map(item => (
+
+              {/* Export sub-nav — hidden in domestic mode */}
+              {mode === 'export' && NAV.map(item => (
                 <button
                   key={item.id}
                   onClick={() => setView(item.id)}
@@ -175,12 +211,13 @@ export default function App() {
 
           {/* Mobile menu */}
           {menuOpen && (
-            <div style={{
-              borderTop: '1px solid #e2e8f0',
-              padding: '12px 0', display: 'flex',
-              flexDirection: 'column', gap: 4,
-            }}
-            className="mobile-menu"
+            <div
+              style={{
+                borderTop: '1px solid #e2e8f0',
+                padding: '12px 0', display: 'flex',
+                flexDirection: 'column', gap: 4,
+              }}
+              className="mobile-menu"
             >
               {/* User info */}
               <div style={{
@@ -191,8 +228,33 @@ export default function App() {
                 <div style={{ fontSize: 11, color: '#94a3b8' }}>{user.role} · {user.companyName}</div>
               </div>
 
-              {/* Nav items */}
-              {NAV.map(item => (
+              {/* Mode switcher */}
+              <div style={{
+                display: 'flex', background: '#f1f5f9',
+                borderRadius: 10, padding: 3, gap: 2,
+                marginBottom: 8,
+              }}>
+                {MODES.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => { setMode(m.id); setMenuOpen(false) }}
+                    style={{
+                      flex: 1, padding: '7px 8px', borderRadius: 8,
+                      border: 'none', cursor: 'pointer',
+                      fontSize: 12, fontWeight: 700,
+                      fontFamily: 'Arial, sans-serif',
+                      background: mode === m.id ? '#ffffff' : 'transparent',
+                      color:      mode === m.id ? '#2563eb' : '#64748b',
+                      boxShadow:  mode === m.id ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Export nav items — hidden in domestic mode */}
+              {mode === 'export' && NAV.map(item => (
                 <button
                   key={item.id}
                   onClick={() => { setView(item.id); setMenuOpen(false) }}
@@ -245,37 +307,46 @@ export default function App() {
 
       {/* ── Main ── */}
       <main style={{ maxWidth: 1400, margin: '0 auto', padding: '16px' }}>
-        {loading && (
-          <div style={{
-            display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center',
-            minHeight: 400, gap: 16,
-          }}>
-            <div style={{
-              width: 48, height: 48,
-              border: '3px solid #e2e8f0',
-              borderTopColor: '#2563eb',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-            }} />
-            <p style={{ color: '#94a3b8', fontSize: 14 }}>Loading trade data…</p>
-          </div>
-        )}
 
-        {error && (
-          <div style={{
-            background: '#fef2f2', border: '1px solid #fecaca',
-            borderRadius: 12, padding: 24, color: '#dc2626',
-          }}>
-            <strong>Error loading data:</strong> {error}
-          </div>
-        )}
+        {/* ── Domestic mode ── */}
+        {mode === 'domestic' && <DomesticDashboard />}
 
-        {data && !loading && (
+        {/* ── Export mode ── (completely untouched) */}
+        {mode === 'export' && (
           <>
-            {view === 'overview'  && <MarketOverview data={data} />}
-            {view === 'commodity' && <ProductTrends data={data} />}
-            {view === 'country'   && <CountryIntelligence data={data} />}
+            {loading && (
+              <div style={{
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                minHeight: 400, gap: 16,
+              }}>
+                <div style={{
+                  width: 48, height: 48,
+                  border: '3px solid #e2e8f0',
+                  borderTopColor: '#2563eb',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                }} />
+                <p style={{ color: '#94a3b8', fontSize: 14 }}>Loading trade data…</p>
+              </div>
+            )}
+
+            {error && (
+              <div style={{
+                background: '#fef2f2', border: '1px solid #fecaca',
+                borderRadius: 12, padding: 24, color: '#dc2626',
+              }}>
+                <strong>Error loading data:</strong> {error}
+              </div>
+            )}
+
+            {data && !loading && (
+              <>
+                {view === 'overview'  && <MarketOverview data={data} />}
+                {view === 'commodity' && <ProductTrends data={data} />}
+                {view === 'country'   && <CountryIntelligence data={data} />}
+              </>
+            )}
           </>
         )}
       </main>
@@ -287,7 +358,7 @@ export default function App() {
         fontSize: 11, color: '#94a3b8', marginTop: 40,
         fontFamily: 'Arial, sans-serif',
       }}>
-        MNTP Trade Intelligence Dashboard • APEDA • Values in USD Million
+        MNTP Trade Intelligence Dashboard
       </footer>
 
       {/* Feedback modal */}
@@ -304,6 +375,9 @@ export default function App() {
         @media (min-width: 769px) {
           .mobile-menu { display: none !important; }
           .hamburger { display: none !important; }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>
