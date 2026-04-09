@@ -11,16 +11,19 @@ export async function getPool() {
     user:     process.env.AZURE_SQL_USER,
     password: process.env.AZURE_SQL_PASSWORD,
     port:     parseInt(process.env.AZURE_SQL_PORT) || 1433,
-    requestTimeout:    60000,   // 60s instead of default 15s
-    connectionTimeout: 30000,
+
+    requestTimeout:    120000,  // 2 min — needed for heavy queries on 27M rows
+    connectionTimeout:  30000,
+
     options: {
-      encrypt:               true,
+      encrypt:                true,
       trustServerCertificate: false,
-      enableArithAbort:      true,
+      enableArithAbort:       true,
     },
+
     pool: {
-      max:               10,
-      min:               0,
+      max:               20,   // up from 10 — filters runs 5 parallel queries
+      min:               2,    // keep 2 warm connections
       idleTimeoutMillis: 30000,
     },
   }

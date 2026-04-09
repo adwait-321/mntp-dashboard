@@ -172,13 +172,12 @@ export default function App() {
 
               <div style={{ width: 1, height: 24, background: '#e2e8f0', margin: '0 4px' }} />
 
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap' }}>
+              <div style={{ 
+                  fontSize: 12, fontWeight: 600, color: '#0f172a', 
+                  whiteSpace: 'nowrap', padding: '6px 12px',
+                  background: '#f1f5f9', borderRadius: 8,
+                  }}>
                   {user.name}
-                </div>
-                <div style={{ fontSize: 10, color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                  {user.role} · {user.companyName}
-                </div>
               </div>
 
               <button

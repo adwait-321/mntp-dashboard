@@ -4,24 +4,21 @@ import Redis from 'ioredis'
 
 const router = express.Router()
 
-// ── Redis client ───────────────────────────────────────────────
+// ── Redis ──────────────────────────────────────────────────────
 const redis = new Redis(process.env.REDIS_URL, {
   tls: { rejectUnauthorized: false },
 })
-
 redis.on('connect', () => console.log('Redis connected'))
 redis.on('error',   (e) => console.error('Redis error:', e.message))
 
-// ── Tiered TTL ─────────────────────────────────────────────────
+// ── Cache helpers ──────────────────────────────────────────────
 function getTTL(endpoint, q = {}) {
-  if (endpoint === 'filters') return 60 * 60 * 24 * 7   // 7 days
+  if (endpoint === 'filters') return 60 * 60 * 24 * 7  // 7 days
   const currentYear = new Date().getFullYear().toString()
   const touchesCurrentYear =
     q.dateFrom?.startsWith(currentYear) ||
     q.dateTo?.startsWith(currentYear)
-  return touchesCurrentYear
-    ? 60 * 60          // 1 hour  — current year, data may still arrive
-    : 60 * 60 * 24     // 24 hours — past years, data is static
+  return touchesCurrentYear ? 60 * 60 : 60 * 60 * 24
 }
 
 async function cacheGet(key) {
@@ -48,7 +45,7 @@ function applyDefaultYear(q) {
   return q
 }
 
-// ── Shared helpers ─────────────────────────────────────────────
+// ── WHERE builder ──────────────────────────────────────────────
 function buildWhere(q) {
   const conditions = []
   const inputs     = []
@@ -67,6 +64,7 @@ function buildWhere(q) {
   }
 }
 
+// ── Query runner ───────────────────────────────────────────────
 async function runQuery(queryStr, inputs) {
   const pool    = await getPool()
   const request = pool.request()
@@ -75,36 +73,75 @@ async function runQuery(queryStr, inputs) {
   return result.recordset
 }
 
-// ── GET /api/domestic/filters ───────────────────────────────────
+// ── GET /api/domestic/filters ──────────────────────────────────
 router.get('/filters', async (req, res) => {
-  const cached = await cacheGet('filters')
+  const { state } = req.query
+  const cacheKey  = `filters:${state || 'all'}`
+  const cached    = await cacheGet(cacheKey)
   if (cached) return res.json(cached)
 
   try {
-    const pool   = await getPool()
-    const result = await pool.request().query(`
-      SELECT filter_type, filter_value
-      FROM mandi_filter_options
-      ORDER BY filter_type, filter_value
-    `)
+    const stateInput  = state ? [{ name: 'state', type: sql.NVarChar, value: state }] : []
+    const stateClause = state ? `AND state = @state` : ''
 
-    const grouped = { states: [], districts: [], markets: [], commodities: [], grades: [] }
-    const map = { state: 'states', district: 'districts', market: 'markets', commodity: 'commodities', grade: 'grades' }
+    const [states, districts, markets, commodities, grades] = await Promise.all([
+      runQuery(`SELECT DISTINCT state     FROM mandi_prices_backup_rename WHERE state     IS NOT NULL ORDER BY state`,     []),
+      runQuery(`SELECT DISTINCT district  FROM mandi_prices_backup_rename WHERE district  IS NOT NULL ${stateClause} ORDER BY district`, stateInput),
+      runQuery(`SELECT DISTINCT market    FROM mandi_prices_backup_rename WHERE market    IS NOT NULL ${stateClause} ORDER BY market`,    stateInput),
+      runQuery(`SELECT DISTINCT commodity FROM mandi_prices_backup_rename WHERE commodity IS NOT NULL ORDER BY commodity`, []),
+      runQuery(`SELECT DISTINCT grade     FROM mandi_prices_backup_rename WHERE grade     IS NOT NULL ORDER BY grade`,     []),
+    ])
 
-    for (const row of result.recordset) {
-      const key = map[row.filter_type]
-      if (key) grouped[key].push(row.filter_value)
+    const data = {
+      states:      states.map(r => r.state),
+      districts:   districts.map(r => r.district),
+      markets:     markets.map(r => r.market),
+      commodities: commodities.map(r => r.commodity),
+      grades:      grades.map(r => r.grade),
     }
 
-    await cacheSet('filters', grouped, getTTL('filters'))
-    res.json(grouped)
+    await cacheSet(cacheKey, data, getTTL('filters'))
+    res.json(data)
   } catch (err) {
     console.error('filters error:', err)
     res.status(500).json({ error: err.message })
   }
 })
 
-// ── GET /api/domestic/overview ──────────────────────────────────
+// ── GET /api/domestic/available-dates ─────────────────────────
+// Uses MIN/MAX instead of DISTINCT — fast even on 27M rows
+router.get('/available-dates', async (req, res) => {
+  const { state } = req.query
+  const cacheKey = `available-dates-v2:${state || 'all'}`
+  const cached    = await cacheGet(cacheKey)
+  if (cached) return res.json(cached)
+
+  try {
+    const stateInput  = state ? [{ name: 'state', type: sql.NVarChar, value: state }] : []
+    const stateClause = state ? `AND state = @state` : ''
+
+    const rows = await runQuery(`
+      SELECT
+        CONVERT(VARCHAR(10), MIN(arrival_date), 23) AS min_date,
+        CONVERT(VARCHAR(10), MAX(arrival_date), 23) AS max_date
+      FROM mandi_prices_backup_rename
+      WHERE arrival_date IS NOT NULL ${stateClause}
+    `, stateInput)
+
+    const data = {
+      minDate: rows[0].min_date,
+      maxDate: rows[0].max_date,
+    }
+
+    await cacheSet(cacheKey, data, getTTL('filters'))
+    res.json(data)
+  } catch (err) {
+    console.error('available-dates error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ── GET /api/domestic/overview ─────────────────────────────────
 router.get('/overview', async (req, res) => {
   const q        = applyDefaultYear(req.query)
   const cacheKey = `overview:${JSON.stringify(q)}`
@@ -146,7 +183,7 @@ router.get('/overview', async (req, res) => {
   }
 })
 
-// ── GET /api/domestic/table ─────────────────────────────────────
+// ── GET /api/domestic/table ────────────────────────────────────
 router.get('/table', async (req, res) => {
   const q        = applyDefaultYear(req.query)
   const page     = parseInt(q.page)     || 1
@@ -199,7 +236,7 @@ router.get('/table', async (req, res) => {
   }
 })
 
-// ── GET /api/domestic/trends ────────────────────────────────────
+// ── GET /api/domestic/trends ───────────────────────────────────
 router.get('/trends', async (req, res) => {
   const q        = applyDefaultYear(req.query)
   const cacheKey = `trends:${JSON.stringify(q)}`
@@ -235,7 +272,7 @@ router.get('/trends', async (req, res) => {
   }
 })
 
-// ── GET /api/domestic/markets ───────────────────────────────────
+// ── GET /api/domestic/markets ──────────────────────────────────
 router.get('/markets', async (req, res) => {
   const q        = applyDefaultYear(req.query)
   const cacheKey = `markets:${JSON.stringify(q)}`
