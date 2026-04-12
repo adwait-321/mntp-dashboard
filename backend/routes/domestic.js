@@ -108,6 +108,15 @@ router.get('/filters', async (req, res) => {
   }
 })
 
+router.get('/clear-cache', async (req, res) => {
+  try {
+    await redis.flushall()
+    res.json({ message: 'Cache cleared!' })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // ── GET /api/domestic/available-dates ─────────────────────────
 // Uses MIN/MAX instead of DISTINCT — fast even on 27M rows
 router.get('/available-dates', async (req, res) => {
