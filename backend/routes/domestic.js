@@ -12,13 +12,18 @@ redis.on('connect', () => console.log('Redis connected'))
 redis.on('error',   (e) => console.error('Redis error:', e.message))
 
 // ── Cache helpers ──────────────────────────────────────────────
+// ── Tiered TTL ─────────────────────────────────────────────────
 function getTTL(endpoint, q = {}) {
   if (endpoint === 'filters') return 60 * 60 * 24 * 7  // 7 days
-  const currentYear = new Date().getFullYear().toString()
-  const touchesCurrentYear =
-    q.dateFrom?.startsWith(currentYear) ||
-    q.dateTo?.startsWith(currentYear)
-  return touchesCurrentYear ? 60 * 60 : 60 * 60 * 24
+
+  // Cache expires at midnight IST daily
+  const now = new Date()
+  const ist = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }))
+  const midnight = new Date(ist)
+  midnight.setHours(24, 0, 0, 0)
+  const secondsUntilMidnight = Math.floor((midnight - ist) / 1000)
+
+  return secondsUntilMidnight
 }
 
 async function cacheGet(key) {
