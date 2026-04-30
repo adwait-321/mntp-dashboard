@@ -22,14 +22,14 @@ const EMPTY_FILTERS = {
 }
 
 export default function DomesticDashboard() {
-  const [page,        setPage]        = useState('overview')
-  const [filters,     setFilters]     = useState(EMPTY_FILTERS)
-  const [applied,     setApplied]     = useState(EMPTY_FILTERS)
-  const [allOptions,  setAllOptions]  = useState({ states: [], districts: [], markets: [], commodities: [], grades: [] })
-  const [cascaded,    setCascaded]    = useState({ districts: [], markets: [] })
-  const [availDates,  setAvailDates]  = useState({ min: null, max: null })
-  const [loadingOpts, setLoadingOpts] = useState(true)
-  const [loadingDates,setLoadingDates]= useState(false)
+  const [page,         setPage]         = useState('overview')
+  const [filters,      setFilters]      = useState(EMPTY_FILTERS)
+  const [applied,      setApplied]      = useState(EMPTY_FILTERS)
+  const [allOptions,   setAllOptions]   = useState({ states: [], districts: [], markets: [], commodities: [], grades: [] })
+  const [cascaded,     setCascaded]     = useState({ districts: [], markets: [] })
+  const [availDates,   setAvailDates]   = useState({ min: null, max: null })
+  const [loadingOpts,  setLoadingOpts]  = useState(true)
+  const [loadingDates, setLoadingDates] = useState(false)
 
   // ── 1. Load base options on mount ──────────────────────────────
   useEffect(() => {
@@ -42,7 +42,7 @@ export default function DomesticDashboard() {
       .finally(() => setLoadingOpts(false))
   }, [])
 
-  // ── 2. Load available date range (min/max) ─────────────────────
+  // ── 2. Load available date range when state changes ────────────
   useEffect(() => {
     setLoadingDates(true)
     const params = filters.state ? { state: filters.state } : {}
@@ -58,6 +58,7 @@ export default function DomesticDashboard() {
   // ── 3. Cascade districts + markets when state changes ──────────
   useEffect(() => {
     if (!filters.state) {
+      // Reset to full lists when state is cleared
       setCascaded({ districts: allOptions.districts, markets: allOptions.markets })
       return
     }
@@ -65,6 +66,29 @@ export default function DomesticDashboard() {
       .then(r => setCascaded({ districts: r.data.districts, markets: r.data.markets }))
       .catch(console.error)
   }, [filters.state, allOptions])
+
+  // ── 3b. Cascade markets when district changes ──────────────────
+  useEffect(() => {
+    if (!filters.district) {
+      // District cleared — restore markets to state-level list
+      if (!filters.state) {
+        setCascaded(prev => ({ ...prev, markets: allOptions.markets }))
+      } else {
+        axios.get(`${API}/api/domestic/filters`, { params: { state: filters.state } })
+          .then(r => setCascaded(prev => ({ ...prev, markets: r.data.markets })))
+          .catch(console.error)
+      }
+      return
+    }
+    // District selected — fetch markets filtered by state + district
+    const params = {}
+    if (filters.state)    params.state    = filters.state
+    if (filters.district) params.district = filters.district
+
+    axios.get(`${API}/api/domestic/filters`, { params })
+      .then(r => setCascaded(prev => ({ ...prev, markets: r.data.markets })))
+      .catch(console.error)
+  }, [filters.district])
 
   // ── 4. Auto-apply on every filter change ───────────────────────
   useEffect(() => {
@@ -96,7 +120,6 @@ export default function DomesticDashboard() {
   const labelStyle = { fontSize: 11, fontWeight: 600, color: '#64748b' }
   const colStyle   = { display: 'flex', flexDirection: 'column', gap: 4 }
 
-  // Convert stored 'YYYY-MM-DD' string → Date for DatePicker
   const dateFromObj = filters.dateFrom ? new Date(filters.dateFrom) : null
   const dateToObj   = filters.dateTo   ? new Date(filters.dateTo)   : null
 
@@ -168,7 +191,7 @@ export default function DomesticDashboard() {
             </select>
           </div>
 
-          {/* Market — cascades from State */}
+          {/* Market — cascades from State + District */}
           <div style={colStyle}>
             <label style={labelStyle}>Market</label>
             <select
