@@ -80,19 +80,25 @@ async function runQuery(queryStr, inputs) {
 
 // ── GET /api/domestic/filters ──────────────────────────────────
 router.get('/filters', async (req, res) => {
-  const { state } = req.query
-  const cacheKey  = `filters:${state || 'all'}`
-  const cached    = await cacheGet(cacheKey)
+  const { state, district } = req.query                                    // ← read both
+  const cacheKey = `filters:${state || 'all'}:${district || 'all'}`       // ← key includes district
+
+  const cached = await cacheGet(cacheKey)
   if (cached) return res.json(cached)
 
   try {
-    const stateInput  = state ? [{ name: 'state', type: sql.NVarChar, value: state }] : []
-    const stateClause = state ? `AND state = @state` : ''
+    const stateInput         = state    ? [{ name: 'state',    type: sql.NVarChar, value: state    }] : []
+    const districtInput      = district ? [{ name: 'district', type: sql.NVarChar, value: district }] : []
+    const stateDistrictInput = [...stateInput, ...districtInput]
+
+    const stateClause         = state    ? `AND state = @state`       : ''
+    const districtClause      = district ? `AND district = @district` : ''
+    const stateDistrictClause = `${stateClause} ${districtClause}`
 
     const [states, districts, markets, commodities, grades] = await Promise.all([
-      runQuery(`SELECT DISTINCT state     FROM mandi_prices_backup_rename WHERE state     IS NOT NULL ORDER BY state`,     []),
-      runQuery(`SELECT DISTINCT district  FROM mandi_prices_backup_rename WHERE district  IS NOT NULL ${stateClause} ORDER BY district`, stateInput),
-      runQuery(`SELECT DISTINCT market    FROM mandi_prices_backup_rename WHERE market    IS NOT NULL ${stateClause} ORDER BY market`,    stateInput),
+      runQuery(`SELECT DISTINCT state     FROM mandi_prices_backup_rename WHERE state     IS NOT NULL ORDER BY state`, []),
+      runQuery(`SELECT DISTINCT district  FROM mandi_prices_backup_rename WHERE district  IS NOT NULL ${stateClause}         ORDER BY district`, stateInput),
+      runQuery(`SELECT DISTINCT market    FROM mandi_prices_backup_rename WHERE market    IS NOT NULL ${stateDistrictClause} ORDER BY market`,   stateDistrictInput),
       runQuery(`SELECT DISTINCT commodity FROM mandi_prices_backup_rename WHERE commodity IS NOT NULL ORDER BY commodity`, []),
       runQuery(`SELECT DISTINCT grade     FROM mandi_prices_backup_rename WHERE grade     IS NOT NULL ORDER BY grade`,     []),
     ])
