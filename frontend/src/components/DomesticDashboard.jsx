@@ -88,7 +88,7 @@ export default function DomesticDashboard() {
     axios.get(`${API}/api/domestic/filters`, { params })
       .then(r => setCascaded(prev => ({ ...prev, markets: r.data.markets })))
       .catch(console.error)
-  }, [filters.district])
+  }, [filters.district, filters.state, allOptions.markets])
 
   // ── 4. Auto-apply on every filter change ───────────────────────
   useEffect(() => {
